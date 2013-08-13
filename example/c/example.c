@@ -1,4 +1,4 @@
-#include "../src/config.h"
+#include "../../src/config.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -11,7 +11,7 @@ void error(const char* msg)
 int main()
 {
 	struct config conf;
-	if(config_load(&conf, "example.conf"))
+	if(config_load(&conf, "../example.conf"))
 	{
 		error("Failed to load example.conf\n");
 	}

@@ -1,1 +1,6 @@
 test/configtest.conf
+*.hi
+*.o
+example/haskell/Example
+example/c/example
+test/configtest
