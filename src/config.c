@@ -90,8 +90,8 @@ static void item_add(struct configsection* section, const char* key, const char*
 	}
 	/* Assign new item */
 	struct configitem* newitem = (struct configitem*)malloc(sizeof(struct configitem));
-	newitem->key = strdup(key);
-	if(val) newitem->val = strdup(val);
+	newitem->key = strndup(key, ITEM_MAXLEN);
+	if(val) newitem->val = strndup(val, ITEM_MAXLEN);
 	else newitem->val = NULL;
 	section->items[section->itemcount++] = newitem;
 
@@ -108,7 +108,7 @@ void config_add(struct config* conf, const char* section, const char* key, const
 		if((item=config_find_item(conf, key, section)))
 		{
 			if(item->val) free(item->val);
-			if(val) item->val=strdup(val);
+			if(val) item->val=strndup(val, ITEM_MAXLEN);
 			else item->val=NULL;
 		}
 		else item_add(sect, key, val);
@@ -131,7 +131,7 @@ static void section_new(struct config* conf, const char* name)
 	}
 	/* Assign new item */
 	struct configsection* newsection = (struct configsection*)malloc(sizeof(struct configsection));
-	newsection->name = strdup(name);
+	newsection->name = strndup(name, ITEM_MAXLEN);
 	newsection->itemcount = 0;
 	newsection->size = 0;
 	newsection->items = NULL;
@@ -211,18 +211,21 @@ int config_load(struct config* conf, const char* filename)
 	int r=1;
 	char* line=NULL;
 	size_t s=0;
-	char header[ITEM_MAXLEN];
-	char left[ITEM_MAXLEN];
-	char right[ITEM_MAXLEN];
+	char header[ITEM_MAXLEN+3];
+	char left[ITEM_MAXLEN+1];
+	char right[ITEM_MAXLEN+1];
 	while((r = getline(&line, &s, f)) != -1)
 	{
-		int h=sscanf(line, "[%[^\n]", header);
+		int h=sscanf(line, "[%255[^\n]", header);
+		header[ITEM_MAXLEN]=0;
 		if(!h)
 		{
-			h=sscanf(line, "%*[ \t]%[^=]=%[^\n]", left, right);
+			h=sscanf(line, "%*[ \t]%255[^=]=%255[^\n]", left, right);
+			left[ITEM_MAXLEN]=0;
+			right[ITEM_MAXLEN]=0;
 			if(h==1)
 			{
-				h=sscanf(line, "%*[ \t]%[^\n]", left);
+				h=sscanf(line, "%*[ \t]%255[^\n]", left);
 				if(h==1) config_add(conf, header, left, NULL);
 				else return -1;
 			}
