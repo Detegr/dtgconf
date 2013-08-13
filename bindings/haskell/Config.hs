@@ -84,19 +84,24 @@ foreign import ccall unsafe "config_add" configAdd :: Ptr CConfig -> CString -> 
 foreign import ccall unsafe "config_free" freeConfig :: Ptr CConfig -> IO()
 foreign import ccall unsafe "config_save" saveConfigInternal :: Ptr CConfig -> CString -> IO()
 
+withConfig :: (Ptr CConfig -> IO a) -> IO()
 withConfig f = alloca $ \p -> initConfig p >> f p >> freeConfig p
+
+withLoadedConfig :: String -> (Ptr CConfig -> IO a) -> IO a
 withLoadedConfig s f = alloca $ \p -> do
   withCString s (\cstr -> loadConfig p cstr)
   val <- f p
   freeConfig p
   return val
 
+getSection :: Ptr CConfig -> String -> IO [ConfigItem]
 getSection c needle = do
   withCString needle $ \n -> do
     section <- findSection c n
     if section == nullPtr then return []
     else peek section >>= cConfigSectionToConfigSection
 
+cConfigItemToItem :: CConfigItem -> IO ConfigItem
 cConfigItemToItem i = do
   k <- peekCString (key i)
   case val i == nullPtr of
@@ -105,27 +110,32 @@ cConfigItemToItem i = do
       v <- peekCString (val i)
       return $ (k, Just v)
 
+cConfigSectionToConfigSection :: CConfigSection -> IO [ConfigItem]
 cConfigSectionToConfigSection s = do
   name <- peekCString (cname s)
   itemptrs <- peekArray (fromIntegral . citemsCount $ s) (citems s)
   mapM (cConfigItemToItem <=< peek) itemptrs
 
+getConfig :: Ptr CConfig -> IO [[ConfigItem]]
 getConfig c = do
   pc <- peek c
   arrptrs <- peekArray (fromIntegral . sectionCount $ pc) $ sections pc
   mapM (cConfigSectionToConfigSection <=< peek) arrptrs
 
+withNullableCString :: String -> (CString -> IO()) -> IO()
 withNullableCString s f =
   case length s of
     0 -> f nullPtr
     _ -> withCString s $ \cs -> f cs
 
+addToConfig :: Ptr CConfig -> String -> String -> String -> IO()
 addToConfig c sect key val =
   withNullableCString sect $ \csect ->
     withNullableCString key $ \ckey ->
       withNullableCString val $ \cval ->
         configAdd c csect ckey cval
 
+saveConfig :: Ptr CConfig -> String -> IO()
 saveConfig c filename = do
   withCString filename $ \f -> do
     saveConfigInternal c f
