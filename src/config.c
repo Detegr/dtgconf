@@ -247,4 +247,5 @@ int config_save(struct config* conf, const char* filename)
 	if(!f) return -1;
 	config_flush(conf, f);
 	fclose(f);
+	return 0;
 }
