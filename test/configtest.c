@@ -166,17 +166,17 @@ int main()
 		fclose(f);
 		struct config loadedconf;
 		config_load(&loadedconf, "configtest.conf");
-		assert(c.sections == loadedconf.sections);
+		assert(c.sectioncount == loadedconf.sectioncount);
 		assert(c.size == loadedconf.size);
-		for(unsigned int ii=0; ii<c.sections; ++ii)
+		for(unsigned int ii=0; ii<c.sectioncount; ++ii)
 		{
-			assert(c.section[ii]->items == loadedconf.section[ii]->items);
-			assert(c.section[ii]->size == loadedconf.section[ii]->size);
-			assert(memcmp(c.section[ii]->name, loadedconf.section[ii]->name, strlen(c.section[ii]->name)) == 0);
-			for(unsigned int jj=0; jj<c.section[ii]->items; ++jj)
+			assert(c.sections[ii]->itemcount == loadedconf.sections[ii]->itemcount);
+			assert(c.sections[ii]->size == loadedconf.sections[ii]->size);
+			assert(memcmp(c.sections[ii]->name, loadedconf.sections[ii]->name, strlen(c.sections[ii]->name)) == 0);
+			for(unsigned int jj=0; jj<c.sections[ii]->itemcount; ++jj)
 			{
-				assert(memcmp(c.section[ii]->item[jj]->key, loadedconf.section[ii]->item[jj]->key, strlen(c.section[ii]->item[jj]->key)) == 0);
-				assert(memcmp(c.section[ii]->item[jj]->val, loadedconf.section[ii]->item[jj]->val, strlen(c.section[ii]->item[jj]->val)) == 0);
+				assert(memcmp(c.sections[ii]->items[jj]->key, loadedconf.sections[ii]->items[jj]->key, strlen(c.sections[ii]->items[jj]->key)) == 0);
+				assert(memcmp(c.sections[ii]->items[jj]->val, loadedconf.sections[ii]->items[jj]->val, strlen(c.sections[ii]->items[jj]->val)) == 0);
 			}
 		}
 		config_free(&loadedconf);

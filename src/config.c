@@ -44,59 +44,59 @@ static void item_free(struct configitem* item)
 static void section_free(struct configsection* sect)
 {
 	free(sect->name);
-	for(unsigned int i=0; i<sect->items; ++i)
+	for(unsigned int i=0; i<sect->itemcount; ++i)
 	{
-		item_free(sect->item[i]);
-		free(sect->item[i]);
+		item_free(sect->items[i]);
+		free(sect->items[i]);
 	}
-	free(sect->item);
+	free(sect->items);
 }
 
 void config_free(struct config* conf)
 {
-	for(unsigned int i=0; i<conf->sections; ++i)
+	for(unsigned int i=0; i<conf->sectioncount; ++i)
 	{
-		section_free(conf->section[i]);
-		free(conf->section[i]);
+		section_free(conf->sections[i]);
+		free(conf->sections[i]);
 	}
-	free(conf->section);
+	free(conf->sections);
 }
 
 static int item_find(struct configsection* haystack, const char* needle)
 {
-	if(haystack->items)
+	if(haystack->itemcount)
 	{
-		return binarysearch(haystack->item, needle, sizeof(struct configitem*), haystack->items-1, item_compare);
+		return binarysearch(haystack->items, needle, sizeof(struct configitem*), haystack->itemcount-1, item_compare);
 	}
 	return -1;
 }
 
 void config_init(struct config* conf)
 {
-	conf->sections = 0;
+	conf->sectioncount = 0;
 	conf->size = 0;
-	conf->section=NULL;
+	conf->sections=NULL;
 }
 
 static void item_add(struct configsection* section, const char* key, const char* val)
 {
 	/* Allocate more space if needed */
-	if(section->items >= section->size)
+	if(section->itemcount >= section->size)
 	{
 		section->size = section->size?section->size*2:8;
-		struct configitem** newitems = realloc(section->item, section->size * sizeof(struct configitem*));
+		struct configitem** newitems = realloc(section->items, section->size * sizeof(struct configitem*));
 		assert(newitems != NULL);
-		section->item=newitems;
+		section->items=newitems;
 	}
 	/* Assign new item */
 	struct configitem* newitem = (struct configitem*)malloc(sizeof(struct configitem));
 	newitem->key = strdup(key);
 	if(val) newitem->val = strdup(val);
 	else newitem->val = NULL;
-	section->item[section->items++] = newitem;
+	section->items[section->itemcount++] = newitem;
 
 	/* TODO: Do not sort the list every time. Just add new item to correct place instead */
-	qsort(section->item, section->items, sizeof(struct configitem*), item_sort);
+	qsort(section->items, section->itemcount, sizeof(struct configitem*), item_sort);
 }
 
 void config_add(struct config* conf, const char* section, const char* key, const char* val)
@@ -122,22 +122,22 @@ void config_add(struct config* conf, const char* section, const char* key, const
 
 static void section_new(struct config* conf, const char* name)
 {
-	if(conf->sections >= conf->size)
+	if(conf->sectioncount >= conf->size)
 	{
 		conf->size = conf->size?conf->size*2:8;
-		struct configsection** newsection = (struct configsection**)realloc(conf->section, conf->size * sizeof(struct configsection*));
+		struct configsection** newsection = (struct configsection**)realloc(conf->sections, conf->size * sizeof(struct configsection*));
 		assert(newsection != NULL);
-		conf->section=newsection;
+		conf->sections=newsection;
 	}
 	/* Assign new item */
 	struct configsection* newsection = (struct configsection*)malloc(sizeof(struct configsection));
 	newsection->name = strdup(name);
-	newsection->items = 0;
+	newsection->itemcount = 0;
 	newsection->size = 0;
-	newsection->item = NULL;
-	conf->section[conf->sections++] = newsection;
+	newsection->items = NULL;
+	conf->sections[conf->sectioncount++] = newsection;
 
-	qsort(conf->section, conf->sections, sizeof(struct configsection*), section_sort);
+	qsort(conf->sections, conf->sectioncount, sizeof(struct configsection*), section_sort);
 }
 
 static int binarysearch(const void* arr, const void* key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*))
@@ -156,10 +156,10 @@ static int binarysearch(const void* arr, const void* key, size_t elemsize, unsig
 
 struct configsection* config_find_section(struct config* haystack, const char* needle)
 {
-	if(haystack->sections)
+	if(haystack->sectioncount)
 	{
-		int i = binarysearch(haystack->section, needle, sizeof(struct configsection*), haystack->sections-1, section_compare);
-		if(i>=0) return haystack->section[i];
+		int i = binarysearch(haystack->sections, needle, sizeof(struct configsection*), haystack->sectioncount-1, section_compare);
+		if(i>=0) return haystack->sections[i];
 	}
 	return NULL;
 }
@@ -172,15 +172,15 @@ struct configitem* config_find_item(struct config* haystack, const char* needle,
 		if((sect=config_find_section(haystack, section)))
 		{
 			int item=item_find(sect, needle);
-			if(item != -1) return sect->item[item];
+			if(item != -1) return sect->items[item];
 		}
 	}
 	else
 	{
-		for(unsigned int i=0; i<haystack->sections; ++i)
+		for(unsigned int i=0; i<haystack->sectioncount; ++i)
 		{
-			int item=item_find(haystack->section[i], needle);
-			if(item != -1) return haystack->section[i]->item[item];
+			int item=item_find(haystack->sections[i], needle);
+			if(item != -1) return haystack->sections[i]->items[item];
 		}
 	}
 	return NULL;
@@ -188,12 +188,12 @@ struct configitem* config_find_item(struct config* haystack, const char* needle,
 
 void config_flush(struct config* conf, FILE* stream)
 {
-	for(unsigned int i=0; i<conf->sections; ++i)
+	for(unsigned int i=0; i<conf->sectioncount; ++i)
 	{
-		fprintf(stream, "[%s]\n", conf->section[i]->name);
-		for(unsigned int j=0; j<conf->section[i]->items; ++j)
+		fprintf(stream, "[%s]\n", conf->sections[i]->name);
+		for(unsigned int j=0; j<conf->sections[i]->itemcount; ++j)
 		{
-			struct configitem* item = conf->section[i]->item[j];
+			struct configitem* item = conf->sections[i]->items[j];
 			if(item->val)
 			{
 				fprintf(stream, "\t%s=%s\n", item->key, item->val);

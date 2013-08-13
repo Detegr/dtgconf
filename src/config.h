@@ -13,16 +13,16 @@ struct configitem
 struct configsection
 {
 	char* name;
-	unsigned int items;
+	unsigned int itemcount;
 	unsigned int size;
-	struct configitem** item;
+	struct configitem** items;
 };
 
 struct config
 {
-	unsigned int sections;
+	unsigned int sectioncount;
 	unsigned int size;
-	struct configsection** section;
+	struct configsection** sections;
 };
 
 struct configsection* config_find_section(struct config* haystack, const char* needle);
