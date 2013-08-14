@@ -33,10 +33,13 @@ int main()
 
 	struct configsection* sect=config_find_section(&conf, "Second section");
 	if(!sect) error("Second section not found\n");
-	printf("Keys from %s:\n", sect->name);
-	for(unsigned i=0; i<sect->itemcount; ++i)
+	else
 	{
-		printf("\t%s\n", sect->items[i]->key);
+		printf("Keys from %s:\n", sect->name);
+		for(unsigned i=0; i<sect->itemcount; ++i)
+		{
+			printf("\t%s\n", sect->items[i]->key);
+		}
 	}
 
 	// If a section is known where the key exists, it can be specified to make the search more efficient
