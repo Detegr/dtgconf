@@ -1,21 +1,17 @@
 import Config
 import Control.Monad.Reader
 
-{-main = withLoadedConfig "../example.conf" $ \c -> do
-  mapM (putStrLn . show) =<< getConfig c-}
-
 printItem (k,v) =
   case v of
-    Just v  -> putStrLn $ k ++ "=" ++ v
-    Nothing -> putStrLn $ k ++ "=" ++ "NO VALUE"
+    Just v  -> putStrLn $ "\t" ++ k ++ "=" ++ v
+    Nothing -> putStrLn $ "\t" ++ k ++ "=" ++ "NO VALUE"
 
-printSection EmptySection = return ()
 printSection (ConfigSection name items) = do
   putStrLn $ "[" ++ name ++ "]"
   mapM_ printItem items
 
-printKeysFromSection EmptySection = return ()
-printKeysFromSection (ConfigSection _ items) = mapM_ (\(k,_) -> putStrLn k) items
+printKeysFromSection (ConfigSection _ items) =
+  mapM_ (\(k,_) -> putStrLn $ "\t" ++ k) items
 
 main = withLoadedConfig "../example.conf" $ do
   sections <- getConfig
@@ -24,6 +20,9 @@ main = withLoadedConfig "../example.conf" $ do
   liftIO $ mapM_ printSection sections
 
   snd <- getSection "Second Section"
-  liftIO $ do
-    putStrLn $ "Keys from " ++ sectionName snd ++ ":"
-    printKeysFromSection snd
+  liftIO $
+    case snd of
+      Just s -> do
+          putStrLn $ "Keys from " ++ sectionName s ++ ":"
+          printKeysFromSection s
+      Nothing -> putStrLn $ "Section not found"

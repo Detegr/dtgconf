@@ -1,7 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Config (withConfig,withLoadedConfig,addToConfig,saveConfig,getSection,getConfig,ConfigSection(..),ConfigItem,Config) where
+module Config (withConfig,withLoadedConfig,addItem,saveConfig,getSection,getConfig,ConfigSection(..),ConfigItem,Config) where
 
 import Foreign.C
 import Foreign.C.String
@@ -44,7 +44,6 @@ data ConfigSection = ConfigSection {
                      sectionName  :: String,
                      sectionItems :: [ConfigItem]
                      }
-                     | EmptySection
 
 instance Storable CConfigSection where
   alignment _ = 8
@@ -124,12 +123,13 @@ getConfig = do
     arrptrs <- peek c >>= \pc -> peekArray (fromIntegral . sectionCount $ pc) $ sections pc
     mapM (cConfigSectionToConfigSection <=< peek) arrptrs
 
-getSection :: String -> ReaderT (Ptr CConfig) IO ConfigSection
+getSection :: String -> ReaderT (Ptr CConfig) IO (Maybe ConfigSection)
 getSection needle = do
   c <- ask
   section <- liftIO $ withCString needle $ \n -> findSection c n
-  if section == nullPtr then return EmptySection
-  else liftIO $ peek section >>= cConfigSectionToConfigSection
+  if section == nullPtr
+    then return Nothing
+    else liftIO $ peek section >>= cConfigSectionToConfigSection >>= return . Just
 
 getItem :: String -> Maybe String -> ReaderT (Ptr CConfig) IO (Maybe ConfigItem)
 getItem i s = do
@@ -139,8 +139,8 @@ getItem i s = do
             Just s  -> withNullableCString s  $ \si -> findItem c ci si
             Nothing -> withNullableCString "" $ \si -> findItem c ci si
   if item == nullPtr
-  then return Nothing
-  else liftIO $ peek item >>= cConfigItemToItem >>= return . Just
+    then return Nothing
+    else liftIO $ peek item >>= cConfigItemToItem >>= return . Just
 
 withNullableCString :: String -> (CString -> IO a) -> IO a
 withNullableCString s f =
@@ -148,8 +148,8 @@ withNullableCString s f =
     0 -> f nullPtr
     _ -> withCString s $ \cs -> f cs
 
-addToConfig :: String -> String -> String -> ReaderT (Ptr CConfig) IO()
-addToConfig sect key val = do
+addItem :: String -> String -> String -> ReaderT (Ptr CConfig) IO()
+addItem sect key val = do
   c <- ask
   liftIO $ withNullableCString sect $ \csect ->
     withNullableCString key $ \ckey ->
