@@ -1,7 +1,16 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Config (withConfig,withLoadedConfig,addItem,saveConfig,getSection,getConfig,ConfigSection(..),ConfigItem,Config) where
+module Config (withConfig,
+               withLoadedConfig,
+               addItem,
+               saveConfig,
+               saveConfigAs,
+               getSection,
+               getConfig,
+               getItem,
+               ConfigSection(..),
+               ConfigItem,
+               Config) where
 
 import Foreign.C
 import Foreign.C.String
@@ -93,10 +102,10 @@ foreign import ccall unsafe "config_save" saveConfigInternal :: Ptr CConfig -> C
 withConfig :: (Ptr CConfig -> IO a) -> IO()
 withConfig f = alloca $ \p -> initConfig p >> f p >> freeConfig p
 
-withLoadedConfig :: String -> (ReaderT (Ptr CConfig) IO a) -> IO a
+withLoadedConfig :: String -> (ReaderT (Ptr CConfig, String) IO a) -> IO a
 withLoadedConfig s f = alloca $ \p -> do
   withCString s (\cstr -> loadConfig p cstr)
-  val <- runReaderT f p
+  val <- runReaderT f (p,s)
   freeConfig p
   return val
 
@@ -116,24 +125,24 @@ cConfigSectionToConfigSection s = do
   items <- mapM (cConfigItemToItem <=< peek) itemptrs
   return $ ConfigSection name items
 
-getConfig :: ReaderT (Ptr CConfig) IO [ConfigSection]
+getConfig :: ReaderT (Ptr CConfig, String) IO [ConfigSection]
 getConfig = do
-  c <- ask
+  (c,_) <- ask
   liftIO $ do
     arrptrs <- peek c >>= \pc -> peekArray (fromIntegral . sectionCount $ pc) $ sections pc
     mapM (cConfigSectionToConfigSection <=< peek) arrptrs
 
-getSection :: String -> ReaderT (Ptr CConfig) IO (Maybe ConfigSection)
+getSection :: String -> ReaderT (Ptr CConfig, String) IO (Maybe ConfigSection)
 getSection needle = do
-  c <- ask
+  (c,_) <- ask
   section <- liftIO $ withCString needle $ \n -> findSection c n
   if section == nullPtr
     then return Nothing
     else liftIO $ peek section >>= cConfigSectionToConfigSection >>= return . Just
 
-getItem :: String -> Maybe String -> ReaderT (Ptr CConfig) IO (Maybe ConfigItem)
+getItem :: String -> Maybe String -> ReaderT (Ptr CConfig, String) IO (Maybe ConfigItem)
 getItem i s = do
-  c <- ask
+  (c,_) <- ask
   item <- liftIO $ withCString i $ \ci ->
           case s of
             Just s  -> withNullableCString s  $ \si -> findItem c ci si
@@ -148,16 +157,22 @@ withNullableCString s f =
     0 -> f nullPtr
     _ -> withCString s $ \cs -> f cs
 
-addItem :: String -> String -> String -> ReaderT (Ptr CConfig) IO()
+addItem :: String -> String -> String -> ReaderT (Ptr CConfig, String) IO()
 addItem sect key val = do
-  c <- ask
+  (c,_) <- ask
   liftIO $ withNullableCString sect $ \csect ->
     withNullableCString key $ \ckey ->
       withNullableCString val $ \cval ->
         configAdd c csect ckey cval
 
-saveConfig :: String -> ReaderT (Ptr CConfig) IO()
-saveConfig filename = do
-  c <- ask
+saveConfig :: ReaderT (Ptr CConfig, String) IO()
+saveConfig = do
+  (c,filename) <- ask
+  liftIO $ withCString filename $ \f -> do
+    saveConfigInternal c f
+
+saveConfigAs :: String -> ReaderT (Ptr CConfig, String) IO()
+saveConfigAs filename = do
+  (c,_) <- ask
   liftIO $ withCString filename $ \f -> do
     saveConfigInternal c f
