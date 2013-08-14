@@ -1,5 +1,5 @@
-#ifndef TAPI2P_CONFIG_H
-#define TAPI2P_CONFIG_H
+#ifndef DTGCONF_CONFIG_H
+#define DTGCONF_CONFIG_H
 
 #include <stdio.h>
 #define ITEM_MAXLEN 255

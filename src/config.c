@@ -84,7 +84,7 @@ static void item_add(struct configsection* section, const char* key, const char*
 	if(section->itemcount >= section->size)
 	{
 		section->size = section->size?section->size*2:8;
-		struct configitem** newitems = realloc(section->items, section->size * sizeof(struct configitem*));
+		struct configitem** newitems = (struct configitem**)realloc(section->items, section->size * sizeof(struct configitem*));
 		assert(newitems != NULL);
 		section->items=newitems;
 	}
@@ -147,10 +147,10 @@ static int binarysearch(const void* arr, const void* key, size_t elemsize, unsig
 	{
 		unsigned int mid = (min+max)>>1;
 		assert(mid<max);
-		if(cmp(key,arr+(mid*elemsize)) > 0) min=mid+1;
+		if(cmp(key,(unsigned char*)arr+(mid*elemsize)) > 0) min=mid+1;
 		else max=mid;
 	}
-	if((max==min) && (cmp(key,arr+(min*elemsize)) == 0)) return min;
+	if((max==min) && (cmp(key,(unsigned char*)arr+(min*elemsize)) == 0)) return min;
 	else return -1;
 }
 
