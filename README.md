@@ -8,3 +8,6 @@ C library for managing structured config files. Bindings for multiple languages.
 ####Language bindings to come
 * Python
 * Rust
+
+##License
+[WTFPL](http://www.wtfpl.net/txt/copying/), although it would be nice for me to know if someone actually finds this useful.
