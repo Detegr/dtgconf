@@ -3,7 +3,7 @@ TESTOBJ=test/configtest.o
 EXAMPLEOBJ=example/c/example.o
 EXAMPLEOBJCPP=bindings/cpp/config.o example/cpp/example.o
 CFLAGS=-O2 -std=c99 -Wall -Wextra -D_GNU_SOURCE
-CXXFLAGS=-O2 -Wall -Wextra
+CXXFLAGS=-O2 -Wall -Wextra -std=c++11
 CC=gcc
 CXX=g++
 TOUT=test/configtest
@@ -21,7 +21,7 @@ exc: $(EXAMPLEOBJ) $(OBJ)
 	$(CC) $(CFLAGS) $(EXAMPLEOBJ) $(OBJ) -o $(EOUT)
 
 excpp: $(EXAMPLEOBJCPP) $(OBJ)
-	$(CXX) $(CXXFLAGS) $(EXAMPLEOBJCPP) $(OBJ)
+	$(CXX) $(CXXFLAGS) $(EXAMPLEOBJCPP) $(OBJ) -o $(ECPPOUT)
 
 exhs: $(OBJ)
 	$(GHC) $(HSOBJ) $(OBJ)
