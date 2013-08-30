@@ -10,7 +10,9 @@ module Config (withConfig,
                getItem,
                ConfigSection(..),
                ConfigItem,
-               Config) where
+               Config,
+               getSectionKeys,
+               ConfigM) where
 
 import Foreign.C
 import Foreign.C.String
@@ -21,6 +23,8 @@ import Foreign.Storable
 import Control.Monad
 import Data.String.Utils
 import Control.Monad.Reader
+
+type ConfigM a = ReaderT (Ptr CConfig, String) IO a
 
 data CConfigItem = CConfigItem
   {
@@ -139,6 +143,13 @@ getSection needle = do
   if section == nullPtr
     then return Nothing
     else liftIO $ peek section >>= cConfigSectionToConfigSection >>= return . Just
+
+getSectionKeys :: String -> ReaderT (Ptr CConfig, String) IO ([String])
+getSectionKeys sect = do
+  s <- getSection sect
+  case s of
+    Just s -> return $ map fst (sectionItems s)
+    Nothing -> return []
 
 getItem :: String -> Maybe String -> ReaderT (Ptr CConfig, String) IO (Maybe ConfigItem)
 getItem i s = do
