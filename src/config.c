@@ -214,18 +214,24 @@ int config_load(struct config* conf, const char* filename)
 	char header[ITEM_MAXLEN+3];
 	char left[ITEM_MAXLEN+1];
 	char right[ITEM_MAXLEN+1];
+	char comment[2];
 	while((r = getline(&line, &s, f)) != -1)
 	{
-		int h=sscanf(line, "[%255[^\n]", header);
+		int h=sscanf(line, "[%255[^\n#]", header);
 		header[ITEM_MAXLEN]=0;
 		if(!h)
 		{
-			h=sscanf(line, "%*[ \t]%255[^=]=%255[^\n]", left, right);
+			h=sscanf(line, "%*[ \t]%[#]", comment);
+			if(h!=0) continue;
+			h=sscanf(line, "%[#]", comment);
+			if(h!=0) continue;
+
+			h=sscanf(line, "%*[ \t]%255[^=]=%255[^\n#]", left, right);
 			left[ITEM_MAXLEN]=0;
 			right[ITEM_MAXLEN]=0;
 			if(h==1)
 			{
-				h=sscanf(line, "%*[ \t]%255[^\n]", left);
+				h=sscanf(line, "%*[ \t]%255[^\n#]", left);
 				if(h==1) config_add(conf, header, left, NULL);
 				else return -1;
 			}
@@ -234,9 +240,18 @@ int config_load(struct config* conf, const char* filename)
 		}
 		else
 		{
+			int headerok=0;
 			size_t hlen = strnlen(header, ITEM_MAXLEN)-1;
-			if(header[hlen]==']') header[hlen]=0;
-			else return -1;
+			for(size_t i=hlen; i>=2; --i)
+			{
+				if(header[i]==']')
+				{
+					header[i]=0;
+					headerok=1;
+					break;
+				}
+			}
+			if(!headerok) return -1;
 		}
 	}
 	free(line);
