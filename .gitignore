@@ -4,3 +4,6 @@ test/configtest.conf
 example/haskell/Example
 example/c/example
 test/configtest
+example/cpp/example
+example/rust/example
+lib/
