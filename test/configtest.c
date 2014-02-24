@@ -161,9 +161,8 @@ int main()
 			}
 		}
 		printf("Testing loading & saving...\n");
-		FILE* f=fopen("configtest.conf", "w");
-		config_flush(&c, f);
-		fclose(f);
+		config_save(&c, "configtest.conf");
+
 		struct config loadedconf;
 		config_load(&loadedconf, "configtest.conf");
 		assert(c.sectioncount == loadedconf.sectioncount);

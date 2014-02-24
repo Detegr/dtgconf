@@ -4,44 +4,44 @@
 #include <assert.h>
 #include <ctype.h>
 
-static int binarysearch(const void* arr, const void* key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*));
-static int item_compare(const void* a, const void* b);
-static int section_compare(const void* a, const void* b);
-static int section_sort(const void* a, const void* b);
+static int binarysearch(const void *arr, const void *key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*));
+static int item_compare(const void *a, const void *b);
+static int section_compare(const void *a, const void *b);
+static int section_sort(const void *a, const void *b);
 
-static void item_add(struct configsection* section, const char* key, const char* val);
-static int item_find(struct configsection* haystack, const char* needle);
-static void item_free(struct configitem* item);
+static void item_add(struct configsection *section, const char *key, const char *val);
+static int item_find(struct configsection *haystack, const char *needle);
+static void item_free(struct configitem *item);
 
-static void section_new(struct config* conf, const char* name);
-static void section_free(struct configsection* sect);
+static void section_new(struct config *conf, const char *name);
+static void section_free(struct configsection *sect);
 
-static int item_compare(const void* a, const void* b)
+static int item_compare(const void *a, const void *b)
 {
 	return strncmp((const char*)a,(*(struct configitem**)b)->key,ITEM_MAXLEN);
 }
-static int item_sort(const void* a, const void* b)
+static int item_sort(const void *a, const void *b)
 {
 	return strncmp((*(struct configitem**)a)->key,(*(struct configitem**)b)->key,ITEM_MAXLEN);
 }
 
-static int section_compare(const void* a, const void* b)
+static int section_compare(const void *a, const void *b)
 {
 	return strncmp((const char*)a,(*(struct configsection**)b)->name,ITEM_MAXLEN);
 }
 
-static int section_sort(const void* a, const void* b)
+static int section_sort(const void *a, const void *b)
 {
 	return strncmp((*(struct configsection**)a)->name,(*(struct configsection**)b)->name,ITEM_MAXLEN);
 }
 
-static void item_free(struct configitem* item)
+static void item_free(struct configitem *item)
 {
 	free(item->key);
 	if(item->val) free(item->val);
 }
 
-static void section_free(struct configsection* sect)
+static void section_free(struct configsection *sect)
 {
 	free(sect->name);
 	for(unsigned int i=0; i<sect->itemcount; ++i)
@@ -52,7 +52,7 @@ static void section_free(struct configsection* sect)
 	free(sect->items);
 }
 
-void config_free(struct config* conf)
+void config_free(struct config *conf)
 {
 	for(unsigned int i=0; i<conf->sectioncount; ++i)
 	{
@@ -62,7 +62,7 @@ void config_free(struct config* conf)
 	free(conf->sections);
 }
 
-static int item_find(struct configsection* haystack, const char* needle)
+static int item_find(struct configsection *haystack, const char *needle)
 {
 	if(haystack->itemcount)
 	{
@@ -71,40 +71,40 @@ static int item_find(struct configsection* haystack, const char* needle)
 	return -1;
 }
 
-void config_init(struct config* conf)
+void config_init(struct config *conf)
 {
 	conf->sectioncount = 0;
 	conf->size = 0;
 	conf->sections=NULL;
 }
 
-static void item_add(struct configsection* section, const char* key, const char* val)
+static void item_add(struct configsection *section, const char *key, const char *val)
 {
-	/* Allocate more space if needed */
+	/*Allocate more space if needed */
 	if(section->itemcount >= section->size)
 	{
 		section->size = section->size?section->size*2:8;
-		struct configitem** newitems = (struct configitem**)realloc(section->items, section->size * sizeof(struct configitem*));
+		struct configitem **newitems = (struct configitem**)realloc(section->items, section->size  *sizeof(struct configitem*));
 		assert(newitems != NULL);
 		section->items=newitems;
 	}
-	/* Assign new item */
-	struct configitem* newitem = (struct configitem*)malloc(sizeof(struct configitem));
+	/*Assign new item */
+	struct configitem *newitem = (struct configitem*)malloc(sizeof(struct configitem));
 	newitem->key = strndup(key, ITEM_MAXLEN);
 	if(val) newitem->val = strndup(val, ITEM_MAXLEN);
 	else newitem->val = NULL;
 	section->items[section->itemcount++] = newitem;
 
-	/* TODO: Do not sort the list every time. Just add new item to correct place instead */
+	/*TODO: Do not sort the list every time. Just add new item to correct place instead */
 	qsort(section->items, section->itemcount, sizeof(struct configitem*), item_sort);
 }
 
-void config_add(struct config* conf, const char* section, const char* key, const char* val)
+void config_add(struct config *conf, const char *section, const char *key, const char *val)
 {
-	struct configsection* sect;
+	struct configsection *sect;
 	if((sect=config_find_section(conf, section)))
 	{
-		struct configitem* item;
+		struct configitem *item;
 		if((item=config_find_item(conf, key, section)))
 		{
 			if(item->val) free(item->val);
@@ -120,17 +120,17 @@ void config_add(struct config* conf, const char* section, const char* key, const
 	}
 }
 
-static void section_new(struct config* conf, const char* name)
+static void section_new(struct config *conf, const char *name)
 {
 	if(conf->sectioncount >= conf->size)
 	{
 		conf->size = conf->size?conf->size*2:8;
-		struct configsection** newsection = (struct configsection**)realloc(conf->sections, conf->size * sizeof(struct configsection*));
+		struct configsection **newsection = (struct configsection**)realloc(conf->sections, conf->size  *sizeof(struct configsection*));
 		assert(newsection != NULL);
 		conf->sections=newsection;
 	}
-	/* Assign new item */
-	struct configsection* newsection = (struct configsection*)malloc(sizeof(struct configsection));
+	/*Assign new item */
+	struct configsection *newsection = (struct configsection*)malloc(sizeof(struct configsection));
 	newsection->name = strndup(name, ITEM_MAXLEN);
 	newsection->itemcount = 0;
 	newsection->size = 0;
@@ -140,7 +140,7 @@ static void section_new(struct config* conf, const char* name)
 	qsort(conf->sections, conf->sectioncount, sizeof(struct configsection*), section_sort);
 }
 
-static int binarysearch(const void* arr, const void* key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*))
+static int binarysearch(const void *arr, const void *key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*))
 {
 	unsigned int min=0;
 	while(min<max)
@@ -154,7 +154,7 @@ static int binarysearch(const void* arr, const void* key, size_t elemsize, unsig
 	else return -1;
 }
 
-struct configsection* config_find_section(struct config* haystack, const char* needle)
+struct configsection *config_find_section(struct config *haystack, const char *needle)
 {
 	if(haystack->sectioncount)
 	{
@@ -164,11 +164,11 @@ struct configsection* config_find_section(struct config* haystack, const char* n
 	return NULL;
 }
 
-struct configitem* config_find_item(struct config* haystack, const char* needle, const char* section)
+struct configitem *config_find_item(struct config *haystack, const char *needle, const char *section)
 {
 	if(section)
 	{
-		struct configsection* sect;
+		struct configsection *sect;
 		if((sect=config_find_section(haystack, section)))
 		{
 			int item=item_find(sect, needle);
@@ -186,14 +186,14 @@ struct configitem* config_find_item(struct config* haystack, const char* needle,
 	return NULL;
 }
 
-void config_flush(struct config* conf, FILE* stream)
+void config_flush(struct config *conf, FILE *stream)
 {
 	for(unsigned int i=0; i<conf->sectioncount; ++i)
 	{
 		fprintf(stream, "[%s]\n", conf->sections[i]->name);
 		for(unsigned int j=0; j<conf->sections[i]->itemcount; ++j)
 		{
-			struct configitem* item = conf->sections[i]->items[j];
+			struct configitem *item = conf->sections[i]->items[j];
 			if(item->val)
 			{
 				fprintf(stream, "\t%s=%s\n", item->key, item->val);
@@ -203,13 +203,13 @@ void config_flush(struct config* conf, FILE* stream)
 	}
 }
 
-int config_load(struct config* conf, const char* filename)
+int config_load(struct config *conf, const char *filename)
 {
 	config_init(conf);
-	FILE* f=fopen(filename, "r");
+	FILE *f=fopen(filename, "r");
 	if(!f) return -1;
 	int r=1;
-	char* line=NULL;
+	char *line=NULL;
 	size_t s=0;
 	char header[ITEM_MAXLEN+3];
 	char left[ITEM_MAXLEN+1];
@@ -259,9 +259,9 @@ int config_load(struct config* conf, const char* filename)
 	return 0;
 }
 
-int config_save(struct config* conf, const char* filename)
+int config_save(struct config *conf, const char *filename)
 {
-	FILE* f=fopen(filename, "w");
+	FILE *f=fopen(filename, "w");
 	if(!f) return -1;
 	config_flush(conf, f);
 	fclose(f);
