@@ -242,7 +242,7 @@ int config_load(struct config* conf, const char* filename)
 		{
 			int headerok=0;
 			size_t hlen = strnlen(header, ITEM_MAXLEN)-1;
-			for(size_t i=hlen; i>=2; --i)
+			for(size_t i=hlen; i>=1; --i)
 			{
 				if(header[i]==']')
 				{
