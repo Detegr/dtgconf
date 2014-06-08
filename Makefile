@@ -37,10 +37,10 @@ exhs: $(OBJ)
 	$(GHC) $(HSOBJ) $(OBJ)
 
 rustlib: dtglib_static
-	rustc bindings/rust/config.rs -Llib --out-dir=lib
+	rustc bindings/rust/config.rs -Llib --out-dir=lib -g
 
 exrust: rustlib
-	rustc example/rust/example.rs -Llib
+	rustc example/rust/example.rs -Llib --out-dir=example/rust -g
 
 test: $(TESTOBJ) $(OBJ)
 	-mkdir -p dist

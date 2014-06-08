@@ -1,11 +1,12 @@
-#[link(name = "dtgconf", vers = "0.1")];
-#[crate_type = "lib"];
+#![crate_id = "dtgconf#0.2"]
+#![crate_type = "lib"]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
 
 pub mod config
 {
-	use std::libc;
+	extern crate libc;
 	use std::ptr;
-	use std::vec;
 	use std::c_str;
 
 	struct c_configitem
@@ -22,16 +23,39 @@ pub mod config
 		items: **c_configitem
 	}
 
-	struct configitem
+	pub struct configitem
 	{
-		key: ~str,
-		val: Option<~str>
+		key: String,
+		val: Option<String>
 	}
 
-	struct configsection
+	impl configitem
 	{
-		name: ~str,
-		items: ~[configitem]
+		pub fn get_key<'a>(&'a self) -> &'a str
+		{
+			self.key.as_slice()
+		}
+		pub fn get_val<'a>(&'a self) -> Option<&'a str>
+		{
+			self.val.as_ref().and_then(|v| {Some(v.as_slice())})
+		}
+	}
+
+	pub struct configsection
+	{
+		name: String,
+		items: Vec<configitem>
+	}
+	impl configsection
+	{
+		pub fn get_name<'a>(&'a self) -> &'a str
+		{
+			self.name.as_slice()
+		}
+		pub fn get_items<'a>(&'a self) -> &'a [configitem]
+		{
+			self.items.as_slice()
+		}
 	}
 
 	struct c_config
@@ -41,7 +65,7 @@ pub mod config
 		sections: **c_configsection
 	}
 
-	#[link_args = "-ldtgconf"]
+	#[link(name = "dtgconf")]
 	extern
 	{
 		fn config_init(conf: *c_config);
@@ -53,7 +77,7 @@ pub mod config
 		fn config_add(conf: *c_config, section: *libc::c_char, key: *libc::c_char, val: *libc::c_char);
 	}
 
-	struct cfg {
+	pub struct cfg {
 		conf: c_config
 	}
 
@@ -62,131 +86,117 @@ pub mod config
 		{
 			cfg{conf: c_config {sectioncount:0, size:0, sections:ptr::null()}}
 		}
-		#[fixed_stack_segment]
-		pub fn load(path: &str) -> Option<~cfg>
+		pub fn load(path: &str) -> Option<cfg>
 		{
+			let conf=cfg::new();
 			unsafe {
-				let conf=cfg::new();
-				let p=ptr::to_unsafe_ptr(&conf.conf);
-				let ok=do path.with_c_str |s| {
+				let p : *c_config = &conf.conf;
+				let ok=path.with_c_str(|s| {
 					match config_load(p,s) {
 						0 => true,
 						_ => false
 					}
-				};
+				});
 				match ok {
-					true  => Some(~conf),
+					true  => Some(conf),
 					false => None
 				}
 			}
 		}
-		#[fixed_stack_segment]
 		pub fn find_section(&self, section: &str) -> Option<configsection>
 		{
 			unsafe {
-				let p=ptr::to_unsafe_ptr(&self.conf);
-				let sec=do section.with_c_str |s| {
+				let p : *c_config = &self.conf;
+				let sec=section.with_c_str(|s| {
 					config_find_section(p, s)
-				};
-				if(sec.is_null()) {
-					None
-				}
+				});
+				if sec.is_null() {None}
 				else
 				{
-					let ivec=vec::from_buf((*sec).items, (*sec).itemcount as uint);
-					let items=vec::flat_map(ivec, |i:&*c_configitem| {
-						let ck = c_str::CString::new((**i).key, false);
-						let cv = c_str::CString::new((**i).val, false);
-						match cv.as_str() {
-							Some(v) => {
-								~[configitem {
-									key: ck.as_str().unwrap().to_owned(),
-									val: Some(v.to_owned())
-								}]
-							},
-							None => {
-								~[configitem {
-									key: ck.as_str().unwrap().to_owned(),
-									val: None
-								}]
+					let mut items=vec![];
+					for i in range(0, (*sec).itemcount)
+					{
+						let item : **c_configitem = (*sec).items.offset(i as int);
+						let ck = c_str::CString::new((**item).key, false);
+						let cv = c_str::CString::new((**item).val, false);
+						items.push(configitem {
+							key: ck.as_str().unwrap().to_string(),
+							val: match cv.is_null() {
+								true => None,
+								false => match cv.as_str() {
+									Some(v) => Some(v.to_string()),
+									None => None
+								}
 							}
-						}
-					});
+						});
+					}
 					let cname = c_str::CString::new((*sec).name, false);
-					return Some(configsection {name: cname.as_str().unwrap().to_owned(), items: items});
+					return Some(configsection {name: cname.as_str().unwrap().to_string(), items: items});
 				}
 			}
 		}
-		#[fixed_stack_segment]
 		pub fn find_item(&self, needle: &str, haystack: Option<&str>) -> Option<configitem>
 		{
 			unsafe {
-				let p=ptr::to_unsafe_ptr(&self.conf);
-				return do needle.with_c_str() |n| {
+				let p : *c_config = &self.conf;
+				return needle.with_c_str(|n| {
 					let ci=match haystack {
-						Some(hs) => {
-							do hs.with_c_str |h| {
+						Some(hs) => hs.with_c_str(|h| {
 								config_find_item(p,n,h)
-							}
-						}
+						}),
 						None => config_find_item(p,n,ptr::null())
 					};
-					if(ci.is_null()) {
-						None
-					}
+					if ci.is_null() {None}
 					else
 					{
 						let ck=c_str::CString::new((*ci).key, false);
 						let cv=c_str::CString::new((*ci).val, false);
-						do ck.as_str().and_then |k| {
-							let both=do cv.as_str().and_then |v| {
-								Some(configitem {key: k.to_owned(), val: Some(v.to_owned())})
-							};
+						return ck.as_str().and_then(|k| {
+							let both=cv.as_str().and_then(|v| {
+								Some(configitem {key: k.to_string(), val: Some(v.to_string())})
+							});
 							match both {
 								Some(ci) => Some(ci),
-								None => Some(configitem {key: k.to_owned(), val: None})
+								None => Some(configitem {key: k.to_string(), val: None})
 							}
-						}
+						});
 					}
-				};
+				});
 			}
 		}
-		#[fixed_stack_segment]
-		pub fn add(&self, section: &str, key: &str, val: Option<~str>)
+		pub fn add(&self, section: &str, key: &str, val: Option<String>)
 		{
 			unsafe {
-				let p=ptr::to_unsafe_ptr(&self.conf);
-				do section.with_c_str |s| {
-					do key.with_c_str |k| {
+				let p : *c_config = &self.conf;
+				section.with_c_str(|s| {
+					key.with_c_str(|k| {
 						match val {
 							Some(ref val) => {
-								do val.with_c_str |v| {
+								val.with_c_str(|v| {
 									config_add(p, s, k, v)
-								}
+								});
 							},
 							None => {
 								config_add(p, s, k, ptr::null())
 							}
 						}
-					}
-				}
+					});
+				});
 			}
 		}
-		#[fixed_stack_segment]
 		pub fn save(&self, to_file: &str)
 		{
 			unsafe {
-				let p=ptr::to_unsafe_ptr(&self.conf);
-				do to_file.with_c_str |f| {
+				let p : *c_config = &self.conf;
+				to_file.with_c_str(|f| {
 					config_save(p,f)
-				}
+				});
 			}
 		}
-		#[fixed_stack_segment]
 		fn free(&self)
 		{
 			unsafe {
-				let p=ptr::to_unsafe_ptr(&self.conf);
+				let p : *c_config = &self.conf;
 				config_free(p);
 			}
 		}
