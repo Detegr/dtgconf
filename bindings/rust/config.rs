@@ -11,16 +11,16 @@ pub mod config
 
 	struct c_configitem
 	{
-		key: *libc::c_char,
-		val: *libc::c_char
+		key: *const libc::c_char,
+		val: *const libc::c_char
 	}
 
 	struct c_configsection
 	{
-		name: *libc::c_char,
+		name: *const libc::c_char,
 		itemcount: libc::c_uint,
 		size: libc::c_uint,
-		items: **c_configitem
+		items: *const *mut c_configitem
 	}
 
 	pub struct configitem
@@ -62,19 +62,19 @@ pub mod config
 	{
 		sectioncount: libc::c_uint,
 		size: libc::c_uint,
-		sections: **c_configsection
+		sections: *mut *mut c_configsection
 	}
 
 	#[link(name = "dtgconf")]
 	extern
 	{
-		fn config_init(conf: *c_config);
-		fn config_free(conf: *c_config);
-		fn config_load(conf: *c_config, filename: *libc::c_char) -> libc::c_int;
-		fn config_save(conf: *c_config, filename: *libc::c_char);
-		fn config_find_section(conf: *c_config, section: *libc::c_char) -> *c_configsection;
-		fn config_find_item(conf: *c_config, needle: *libc::c_char, haystack: *libc::c_char) -> *c_configitem;
-		fn config_add(conf: *c_config, section: *libc::c_char, key: *libc::c_char, val: *libc::c_char);
+		fn config_init(conf: *mut c_config);
+		fn config_free(conf: *mut c_config);
+		fn config_load(conf: *mut c_config, filename: *const libc::c_char) -> libc::c_int;
+		fn config_save(conf: *mut c_config, filename: *const libc::c_char);
+		fn config_find_section(conf: *mut c_config, section: *const libc::c_char) -> *mut c_configsection;
+		fn config_find_item(conf: *mut c_config, needle: *const libc::c_char, haystack: *const libc::c_char) -> *mut c_configitem;
+		fn config_add(conf: *mut c_config, section: *const libc::c_char, key: *const libc::c_char, val: *const libc::c_char);
 	}
 
 	pub struct cfg {
@@ -84,13 +84,13 @@ pub mod config
 	impl cfg {
 		pub fn new() -> cfg
 		{
-			cfg{conf: c_config {sectioncount:0, size:0, sections:ptr::null()}}
+			cfg{conf: c_config {sectioncount:0, size:0, sections:ptr::mut_null()}}
 		}
 		pub fn load(path: &str) -> Option<cfg>
 		{
-			let conf=cfg::new();
+			let mut conf=cfg::new();
 			unsafe {
-				let p : *c_config = &conf.conf;
+				let p : *mut c_config = &mut conf.conf;
 				let ok=path.with_c_str(|s| {
 					match config_load(p,s) {
 						0 => true,
@@ -103,10 +103,10 @@ pub mod config
 				}
 			}
 		}
-		pub fn find_section(&self, section: &str) -> Option<configsection>
+		pub fn find_section(&mut self, section: &str) -> Option<configsection>
 		{
 			unsafe {
-				let p : *c_config = &self.conf;
+				let p : *mut c_config = &mut self.conf;
 				let sec=section.with_c_str(|s| {
 					config_find_section(p, s)
 				});
@@ -116,7 +116,7 @@ pub mod config
 					let mut items=vec![];
 					for i in range(0, (*sec).itemcount)
 					{
-						let item : **c_configitem = (*sec).items.offset(i as int);
+						let item : *const *mut c_configitem = (*sec).items.offset(i as int);
 						let ck = c_str::CString::new((**item).key, false);
 						let cv = c_str::CString::new((**item).val, false);
 						items.push(configitem {
@@ -135,10 +135,10 @@ pub mod config
 				}
 			}
 		}
-		pub fn find_item(&self, needle: &str, haystack: Option<&str>) -> Option<configitem>
+		pub fn find_item(&mut self, needle: &str, haystack: Option<&str>) -> Option<configitem>
 		{
 			unsafe {
-				let p : *c_config = &self.conf;
+				let p : *mut c_config = &mut self.conf;
 				return needle.with_c_str(|n| {
 					let ci=match haystack {
 						Some(hs) => hs.with_c_str(|h| {
@@ -164,10 +164,10 @@ pub mod config
 				});
 			}
 		}
-		pub fn add(&self, section: &str, key: &str, val: Option<String>)
+		pub fn add(&mut self, section: &str, key: &str, val: Option<String>)
 		{
 			unsafe {
-				let p : *c_config = &self.conf;
+				let p : *mut c_config = &mut self.conf;
 				section.with_c_str(|s| {
 					key.with_c_str(|k| {
 						match val {
@@ -184,19 +184,19 @@ pub mod config
 				});
 			}
 		}
-		pub fn save(&self, to_file: &str)
+		pub fn save(&mut self, to_file: &str)
 		{
 			unsafe {
-				let p : *c_config = &self.conf;
+				let p : *mut c_config = &mut self.conf;
 				to_file.with_c_str(|f| {
 					config_save(p,f)
 				});
 			}
 		}
-		fn free(&self)
+		fn free(&mut self)
 		{
 			unsafe {
-				let p : *c_config = &self.conf;
+				let p : *mut c_config = &mut self.conf;
 				config_free(p);
 			}
 		}
