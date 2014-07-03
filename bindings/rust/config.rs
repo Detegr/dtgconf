@@ -70,10 +70,10 @@ pub mod config
 	{
 		fn config_init(conf: *mut c_config);
 		fn config_free(conf: *mut c_config);
-		fn config_load(conf: *mut c_config, filename: *const libc::c_char) -> libc::c_int;
-		fn config_save(conf: *mut c_config, filename: *const libc::c_char);
-		fn config_find_section(conf: *mut c_config, section: *const libc::c_char) -> *mut c_configsection;
-		fn config_find_item(conf: *mut c_config, needle: *const libc::c_char, haystack: *const libc::c_char) -> *mut c_configitem;
+		fn config_load(conf: *const c_config, filename: *const libc::c_char) -> libc::c_int;
+		fn config_save(conf: *const c_config, filename: *const libc::c_char);
+		fn config_find_section(conf: *const c_config, section: *const libc::c_char) -> *const c_configsection;
+		fn config_find_item(conf: *const c_config, needle: *const libc::c_char, haystack: *const libc::c_char) -> *const c_configitem;
 		fn config_add(conf: *mut c_config, section: *const libc::c_char, key: *const libc::c_char, val: *const libc::c_char);
 	}
 
@@ -88,9 +88,9 @@ pub mod config
 		}
 		pub fn load(path: &str) -> Option<cfg>
 		{
-			let mut conf=cfg::new();
+			let conf=cfg::new();
 			unsafe {
-				let p : *mut c_config = &mut conf.conf;
+				let p : *const c_config = &conf.conf;
 				let ok=path.with_c_str(|s| {
 					match config_load(p,s) {
 						0 => true,
@@ -103,10 +103,10 @@ pub mod config
 				}
 			}
 		}
-		pub fn find_section(&mut self, section: &str) -> Option<configsection>
+		pub fn find_section(&self, section: &str) -> Option<configsection>
 		{
 			unsafe {
-				let p : *mut c_config = &mut self.conf;
+				let p : *const c_config = &self.conf;
 				let sec=section.with_c_str(|s| {
 					config_find_section(p, s)
 				});
@@ -135,10 +135,10 @@ pub mod config
 				}
 			}
 		}
-		pub fn find_item(&mut self, needle: &str, haystack: Option<&str>) -> Option<configitem>
+		pub fn find_item(&self, needle: &str, haystack: Option<&str>) -> Option<configitem>
 		{
 			unsafe {
-				let p : *mut c_config = &mut self.conf;
+				let p : *const c_config = &self.conf;
 				return needle.with_c_str(|n| {
 					let ci=match haystack {
 						Some(hs) => hs.with_c_str(|h| {
@@ -184,10 +184,10 @@ pub mod config
 				});
 			}
 		}
-		pub fn save(&mut self, to_file: &str)
+		pub fn save(&self, to_file: &str)
 		{
 			unsafe {
-				let p : *mut c_config = &mut self.conf;
+				let p : *const c_config = &self.conf;
 				to_file.with_c_str(|f| {
 					config_save(p,f)
 				});

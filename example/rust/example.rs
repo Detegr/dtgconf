@@ -6,7 +6,7 @@ use std::rand::Rng;
 fn main()
 {
 	let conf_path="../example.conf";
-	let conf=match config::cfg::load(conf_path) {
+	let mut conf=match config::cfg::load(conf_path) {
 		Some(c) => c,
 		None => {
 			println!("Failed to load example.conf");
