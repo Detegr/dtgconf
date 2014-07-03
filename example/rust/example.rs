@@ -5,8 +5,8 @@ use std::rand::Rng;
 
 fn main()
 {
-	let conf_path="../example.conf";
-	let mut conf=match config::cfg::load(conf_path) {
+	let conf_path=Path::new("../example.conf");
+	let mut conf=match config::cfg::load(&conf_path) {
 		Some(c) => c,
 		None => {
 			println!("Failed to load example.conf");
@@ -32,5 +32,5 @@ fn main()
 	let mut rng=rand::task_rng();
 	let randomstr = rng.gen::<int>().to_str();
 	conf.add("First section", "Random value from example", Some(randomstr));
-	conf.save(conf_path);
+	conf.save(&conf_path);
 }

@@ -86,21 +86,19 @@ pub mod config
 		{
 			cfg{conf: c_config {sectioncount:0, size:0, sections:ptr::mut_null()}}
 		}
-		pub fn load(path: &str) -> Option<cfg>
+		pub fn load(path: &Path) -> Option<cfg>
 		{
-			let conf=cfg::new();
 			unsafe {
-				let p : *const c_config = &conf.conf;
-				let ok=path.with_c_str(|s| {
-					match config_load(p,s) {
-						0 => true,
-						_ => false
-					}
-				});
-				match ok {
-					true  => Some(conf),
-					false => None
-				}
+				path.as_str()
+					.and_then(|pstr| { pstr.with_c_str(|s|
+					{
+						let conf=cfg::new();
+						let p : *const c_config = &conf.conf;
+						match config_load(p,s) {
+							0 => Some(conf),
+							_ => None
+						}
+					})})
 			}
 		}
 		pub fn find_section(&self, section: &str) -> Option<configsection>
@@ -184,7 +182,7 @@ pub mod config
 				});
 			}
 		}
-		pub fn save(&self, to_file: &str)
+		pub fn save(&self, to_file: &Path)
 		{
 			unsafe {
 				let p : *const c_config = &self.conf;
