@@ -3,207 +3,217 @@
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
 
-pub mod config
+extern crate libc;
+use std::ptr;
+use std::c_str;
+use std::result::Result;
+
+struct CConfigItem
 {
-	extern crate libc;
-	use std::ptr;
-	use std::c_str;
+	key: *const libc::c_char,
+	val: *const libc::c_char
+}
 
-	struct c_configitem
+#[allow(dead_code)]
+struct CConfigSection
+{
+	name: *const libc::c_char,
+	itemcount: libc::c_uint,
+	size: libc::c_uint,
+	items: *const *mut CConfigItem
+}
+
+pub struct ConfigItem
+{
+	key: String,
+	val: Option<String>
+}
+
+impl ConfigItem
+{
+	pub fn get_key<'a>(&'a self) -> &'a str
 	{
-		key: *const libc::c_char,
-		val: *const libc::c_char
+		self.key.as_slice()
 	}
-
-	struct c_configsection
+	pub fn get_val<'a>(&'a self) -> Option<&'a str>
 	{
-		name: *const libc::c_char,
-		itemcount: libc::c_uint,
-		size: libc::c_uint,
-		items: *const *mut c_configitem
+		self.val.as_ref().and_then(|v| {Some(v.as_slice())})
 	}
+}
 
-	pub struct configitem
+pub struct ConfigSection
+{
+	name: String,
+	items: Vec<ConfigItem>
+}
+impl ConfigSection
+{
+	pub fn get_name<'a>(&'a self) -> &'a str
 	{
-		key: String,
-		val: Option<String>
+		self.name.as_slice()
 	}
-
-	impl configitem
+	pub fn get_items<'a>(&'a self) -> &'a [ConfigItem]
 	{
-		pub fn get_key<'a>(&'a self) -> &'a str
-		{
-			self.key.as_slice()
-		}
-		pub fn get_val<'a>(&'a self) -> Option<&'a str>
-		{
-			self.val.as_ref().and_then(|v| {Some(v.as_slice())})
-		}
+		self.items.as_slice()
 	}
+}
 
-	pub struct configsection
+#[allow(dead_code)]
+struct CConfig
+{
+	sectioncount: libc::c_uint,
+	size: libc::c_uint,
+	sections: *mut *mut CConfigSection
+}
+
+#[link(name = "dtgconf")]
+extern
+{
+	fn config_init(conf: *mut CConfig);
+	fn config_free(conf: *mut CConfig);
+	fn config_load(conf: *const CConfig, filename: *const libc::c_char) -> libc::c_int;
+	fn config_save(conf: *const CConfig, filename: *const libc::c_char);
+	fn config_find_section(conf: *const CConfig, section: *const libc::c_char) -> *const CConfigSection;
+	fn config_find_item(conf: *const CConfig, needle: *const libc::c_char, haystack: *const libc::c_char) -> *const CConfigItem;
+	fn config_add(conf: *mut CConfig, section: *const libc::c_char, key: *const libc::c_char, val: *const libc::c_char);
+}
+
+pub struct Config {
+	conf: CConfig
+}
+
+impl Config {
+	pub fn new() -> Config
 	{
-		name: String,
-		items: Vec<configitem>
-	}
-	impl configsection
-	{
-		pub fn get_name<'a>(&'a self) -> &'a str
-		{
-			self.name.as_slice()
-		}
-		pub fn get_items<'a>(&'a self) -> &'a [configitem]
-		{
-			self.items.as_slice()
-		}
-	}
-
-	struct c_config
-	{
-		sectioncount: libc::c_uint,
-		size: libc::c_uint,
-		sections: *mut *mut c_configsection
-	}
-
-	#[link(name = "dtgconf")]
-	extern
-	{
-		fn config_init(conf: *mut c_config);
-		fn config_free(conf: *mut c_config);
-		fn config_load(conf: *const c_config, filename: *const libc::c_char) -> libc::c_int;
-		fn config_save(conf: *const c_config, filename: *const libc::c_char);
-		fn config_find_section(conf: *const c_config, section: *const libc::c_char) -> *const c_configsection;
-		fn config_find_item(conf: *const c_config, needle: *const libc::c_char, haystack: *const libc::c_char) -> *const c_configitem;
-		fn config_add(conf: *mut c_config, section: *const libc::c_char, key: *const libc::c_char, val: *const libc::c_char);
-	}
-
-	pub struct cfg {
-		conf: c_config
-	}
-
-	impl cfg {
-		pub fn new() -> cfg
-		{
-			cfg{conf: c_config {sectioncount:0, size:0, sections:ptr::mut_null()}}
-		}
-		pub fn load(path: &Path) -> Option<cfg>
-		{
-			unsafe {
-				path.as_str()
-					.and_then(|pstr| { pstr.with_c_str(|s|
-					{
-						let conf=cfg::new();
-						let p : *const c_config = &conf.conf;
-						match config_load(p,s) {
-							0 => Some(conf),
-							_ => None
-						}
-					})})
+		let mut conf = Config {
+			conf: CConfig {
+				sectioncount:0,
+				size:0,
+				sections:ptr::mut_null()
 			}
+		};
+		unsafe {
+			config_init(&mut conf.conf);
 		}
-		pub fn find_section(&self, section: &str) -> Option<configsection>
-		{
-			unsafe {
-				let p : *const c_config = &self.conf;
-				let sec=section.with_c_str(|s| {
-					config_find_section(p, s)
-				});
-				if sec.is_null() {None}
-				else
+		conf
+	}
+	pub fn load(path: &Path) -> Result<Config, &'static str>
+	{
+		unsafe {
+			path.as_str()
+				.map(|pstr| { pstr.with_c_str(|s|
 				{
-					let mut items=vec![];
-					for i in range(0, (*sec).itemcount)
-					{
-						let item : *const *mut c_configitem = (*sec).items.offset(i as int);
-						let ck = c_str::CString::new((**item).key, false);
-						let cv = c_str::CString::new((**item).val, false);
-						items.push(configitem {
-							key: ck.as_str().unwrap().to_string(),
-							val: match cv.is_null() {
-								true => None,
-								false => match cv.as_str() {
-									Some(v) => Some(v.to_string()),
-									None => None
-								}
-							}
-						});
+					let conf=Config::new();
+					let p : *const CConfig = &conf.conf;
+					match config_load(p,s) {
+						0 => Ok(conf),
+						_ => Err("Could not load config file. No such file or invalid config file.")
 					}
-					let cname = c_str::CString::new((*sec).name, false);
-					return Some(configsection {name: cname.as_str().unwrap().to_string(), items: items});
-				}
-			}
+				})}).unwrap()
 		}
-		pub fn find_item(&self, needle: &str, haystack: Option<&str>) -> Option<configitem>
-		{
-			unsafe {
-				let p : *const c_config = &self.conf;
-				return needle.with_c_str(|n| {
-					let ci=match haystack {
-						Some(hs) => hs.with_c_str(|h| {
-								config_find_item(p,n,h)
-						}),
-						None => config_find_item(p,n,ptr::null())
-					};
-					if ci.is_null() {None}
-					else
-					{
-						let ck=c_str::CString::new((*ci).key, false);
-						let cv=c_str::CString::new((*ci).val, false);
-						return ck.as_str().and_then(|k| {
-							let both=cv.as_str().and_then(|v| {
-								Some(configitem {key: k.to_string(), val: Some(v.to_string())})
-							});
-							match both {
-								Some(ci) => Some(ci),
-								None => Some(configitem {key: k.to_string(), val: None})
-							}
-						});
-					}
-				});
-			}
-		}
-		pub fn add(&mut self, section: &str, key: &str, val: Option<String>)
-		{
-			unsafe {
-				let p : *mut c_config = &mut self.conf;
-				section.with_c_str(|s| {
-					key.with_c_str(|k| {
-						match val {
-							Some(ref val) => {
-								val.with_c_str(|v| {
-									config_add(p, s, k, v)
-								});
-							},
-							None => {
-								config_add(p, s, k, ptr::null())
+	}
+	pub fn find_section(&self, section: &str) -> Option<ConfigSection>
+	{
+		unsafe {
+			let p : *const CConfig = &self.conf;
+			let sec=section.with_c_str(|s| {
+				config_find_section(p, s)
+			});
+			if sec.is_null() {None}
+			else
+			{
+				let mut items=vec![];
+				for i in range(0, (*sec).itemcount)
+				{
+					let item : *const *mut CConfigItem = (*sec).items.offset(i as int);
+					let ck = c_str::CString::new((**item).key, false);
+					let cv = c_str::CString::new((**item).val, false);
+					items.push(ConfigItem {
+						key: ck.as_str().unwrap().to_string(),
+						val: match cv.is_null() {
+							true => None,
+							false => match cv.as_str() {
+								Some(v) => Some(v.to_string()),
+								None => None
 							}
 						}
 					});
-				});
-			}
-		}
-		pub fn save(&self, to_file: &Path)
-		{
-			unsafe {
-				let p : *const c_config = &self.conf;
-				to_file.with_c_str(|f| {
-					config_save(p,f)
-				});
-			}
-		}
-		fn free(&mut self)
-		{
-			unsafe {
-				let p : *mut c_config = &mut self.conf;
-				config_free(p);
+				}
+				let cname = c_str::CString::new((*sec).name, false);
+				return Some(ConfigSection {name: cname.as_str().unwrap().to_string(), items: items});
 			}
 		}
 	}
-	impl Drop for cfg
+	pub fn find_item(&self, needle: &str, haystack: Option<&str>) -> Option<ConfigItem>
 	{
-		fn drop(&mut self)
-		{
-			self.free();
+		unsafe {
+			let p : *const CConfig = &self.conf;
+			return needle.with_c_str(|n| {
+				let ci=match haystack {
+					Some(hs) => hs.with_c_str(|h| {
+							config_find_item(p,n,h)
+					}),
+					None => config_find_item(p,n,ptr::null())
+				};
+				if ci.is_null() {None}
+				else
+				{
+					let ck=c_str::CString::new((*ci).key, false);
+					let cv=c_str::CString::new((*ci).val, false);
+					return ck.as_str().and_then(|k| {
+						let both=cv.as_str().and_then(|v| {
+							Some(ConfigItem {key: k.to_string(), val: Some(v.to_string())})
+						});
+						match both {
+							Some(ci) => Some(ci),
+							None => Some(ConfigItem {key: k.to_string(), val: None})
+						}
+					});
+				}
+			});
 		}
+	}
+	pub fn add(&mut self, section: &str, key: &str, val: Option<String>)
+	{
+		unsafe {
+			let p : *mut CConfig = &mut self.conf;
+			section.with_c_str(|s| {
+				key.with_c_str(|k| {
+					match val {
+						Some(ref val) => {
+							val.with_c_str(|v| {
+								config_add(p, s, k, v)
+							});
+						},
+						None => {
+							config_add(p, s, k, ptr::null())
+						}
+					}
+				});
+			});
+		}
+	}
+	pub fn save(&self, to_file: &Path)
+	{
+		unsafe {
+			let p : *const CConfig = &self.conf;
+			to_file.with_c_str(|f| {
+				config_save(p,f)
+			});
+		}
+	}
+	fn free(&mut self)
+	{
+		unsafe {
+			let p : *mut CConfig = &mut self.conf;
+			config_free(p);
+		}
+	}
+}
+impl Drop for Config
+{
+	fn drop(&mut self)
+	{
+		self.free();
 	}
 }

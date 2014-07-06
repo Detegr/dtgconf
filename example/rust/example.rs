@@ -1,14 +1,14 @@
 extern crate dtgconf;
-use dtgconf::config;
+use dtgconf::Config;
 use std::rand;
 use std::rand::Rng;
 
 fn main()
 {
 	let conf_path=Path::new("../example.conf");
-	let mut conf=match config::cfg::load(&conf_path) {
-		Some(c) => c,
-		None => {
+	let mut conf=match Config::load(&conf_path) {
+		Ok(c) => c,
+		Err(_) => {
 			println!("Failed to load example.conf");
 			return
 		}
