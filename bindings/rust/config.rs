@@ -1,4 +1,4 @@
-#![crate_id = "dtgconf#0.2"]
+#![crate_name = "dtgconf"]
 #![crate_type = "lib"]
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
@@ -20,7 +20,7 @@ struct CConfigSection
 	name: *const libc::c_char,
 	itemcount: libc::c_uint,
 	size: libc::c_uint,
-	items: *const *mut CConfigItem
+	items: *const *const CConfigItem
 }
 
 pub struct ConfigItem
@@ -125,14 +125,13 @@ impl Config {
 				let mut items=vec![];
 				for i in range(0, (*sec).itemcount)
 				{
-					let item : *const *mut CConfigItem = (*sec).items.offset(i as int);
+					let item : *const *const CConfigItem = (*sec).items.offset(i as int);
 					let ck = c_str::CString::new((**item).key, false);
-					let cv = c_str::CString::new((**item).val, false);
 					items.push(ConfigItem {
 						key: ck.as_str().unwrap().to_string(),
-						val: match cv.is_null() {
+						val: match (**item).val.is_null() {
 							true => None,
-							false => match cv.as_str() {
+							false => match c_str::CString::new((**item).val, false).as_str() {
 								Some(v) => Some(v.to_string()),
 								None => None
 							}
